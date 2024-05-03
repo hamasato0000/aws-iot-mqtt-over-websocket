@@ -21,8 +21,9 @@ export default function Index() {
   useEffect(() => {
     const connectToMqtt = () => {
       // MQTTクラアント
+      const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
       const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
-        clientId: `mqtt_${Math.random().toString(16).slice(3)}`,
+        clientId: clientId,
         clean: true,
         connectTimeout: 4000,
         reconnectPeriod: 1000,
@@ -33,7 +34,7 @@ export default function Index() {
       mqttClient.on("connect", () => {
         setClient(mqttClient);
         setIsConnected(true);
-        console.log("Connected to MQTT broker");
+        console.log("Connected to MQTT broker. Client ID:", clientId);
 
         // サブスクライブ
         // NOTE: 前段でsetClientでclientにmqttClientセットしているし、clientで良いのでは？
