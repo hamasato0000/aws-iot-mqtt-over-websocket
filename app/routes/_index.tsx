@@ -1,6 +1,6 @@
 import type { MetaFunction } from "@remix-run/node";
 import mqtt, { MqttClient } from "mqtt";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const MQTT_BROKER_URL = "wss://broker.emqx.io:8084/mqtt";
 const MQTT_TOPIC = "test/topic";
@@ -13,66 +13,61 @@ export const meta: MetaFunction = () => {
 };
 
 export default function Index() {
-  const [client, setClient] = useState<MqttClient | null>(null);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
   const [receivedMessage, setReceivedMessage] = useState<string>("");
+  const mqttClientRef = useRef<MqttClient | null>(null);
 
   useEffect(() => {
-    const connectToMqtt = () => {
-      // MQTTクラアント
-      const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
-      const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
-        clientId: clientId,
-        clean: true,
-        connectTimeout: 4000,
-        reconnectPeriod: 1000,
+    const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
+    const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
+      clientId: clientId,
+      clean: true,
+      connectTimeout: 4000,
+      reconnectPeriod: 1000,
+    });
+    mqttClientRef.current = mqttClient;
+
+    // ブローカーに接続
+    // NOTE: 接続に関するエラーハンドリングは？
+    mqttClientRef.current.on("connect", () => {
+      setIsConnected(true);
+      console.log("Connected to MQTT broker. Client ID:", clientId);
+
+      // サブスクライブ
+      // NOTE: 前段でsetClientでclientにmqttClientセットしているし、clientで良いのでは？
+      mqttClientRef.current?.subscribe(MQTT_TOPIC, (err) => {
+        if (err) {
+          console.error("Failed to subscribe:", err);
+        } else {
+          console.log("subscribed to topic:", MQTT_TOPIC);
+        }
       });
+    });
 
-      // ブローカーに接続
-      // NOTE: 接続に関するエラーハンドリングは？
-      mqttClient.on("connect", () => {
-        setClient(mqttClient);
-        setIsConnected(true);
-        console.log("Connected to MQTT broker. Client ID:", clientId);
+    // メッセージ受信
+    mqttClientRef.current.on("message", (topic: string, message: Buffer) => {
+      console.log("Received message:", topic, message.toString());
+      setReceivedMessage(message.toString());
+    });
 
-        // サブスクライブ
-        // NOTE: 前段でsetClientでclientにmqttClientセットしているし、clientで良いのでは？
-        mqttClient.subscribe(MQTT_TOPIC, (err) => {
-          if (err) {
-            console.error("Failed to subscribe:", err);
-          } else {
-            console.log("subscribed to topic:", MQTT_TOPIC);
-          }
-        });
-      });
-
-      // メッセージ受信
-      mqttClient.on("message", (topic: string, message: Buffer) => {
-        console.log("Received message:", topic, message.toString());
-        setReceivedMessage(message.toString());
-      });
-
-      // エラー
-      mqttClient.on("error", (err: Error) => {
-        console.log("MQTT error:", err);
-        mqttClient.end();
-      });
-    };
-
-    connectToMqtt();
+    // エラー
+    mqttClientRef.current.on("error", (err: Error) => {
+      console.log("MQTT error:", err);
+      mqttClientRef.current?.end();
+    });
 
     return () => {
-      if (client) {
-        client.end();
+      if (mqttClientRef.current) {
+        mqttClientRef.current.end();
       }
     };
   }, []);
 
   const handleSendMessage = () => {
-    if (client) {
+    if (mqttClientRef.current) {
       // パブリッシュ
-      client.publish(MQTT_TOPIC, message);
+      mqttClientRef.current.publish(MQTT_TOPIC, message);
       console.log("Message sent:", message);
     }
   };
