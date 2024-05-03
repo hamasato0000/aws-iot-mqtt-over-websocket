@@ -1,5 +1,4 @@
 import { MetaFunction } from "@remix-run/node";
-import { NavLink } from "@remix-run/react";
 import mqtt, { MqttClient } from "mqtt";
 import { useEffect, useRef, useState } from "react";
 
@@ -21,6 +20,8 @@ export default function Mqtt() {
 
   useEffect(() => {
     const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
+
+    // MQTTクライアント
     const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
       clientId: clientId,
       clean: true,
@@ -36,12 +37,11 @@ export default function Mqtt() {
       console.log("Connected to MQTT broker. Client ID:", clientId);
 
       // サブスクライブ
-      // NOTE: 前段でsetClientでclientにmqttClientセットしているし、clientで良いのでは？
       mqttClientRef.current?.subscribe(MQTT_TOPIC, (err) => {
         if (err) {
           console.error("Failed to subscribe:", err);
         } else {
-          console.log("subscribed to topic:", MQTT_TOPIC);
+          console.log("Subscribed to topic:", MQTT_TOPIC);
         }
       });
     });
@@ -54,14 +54,18 @@ export default function Mqtt() {
 
     // エラー
     mqttClientRef.current.on("error", (err: Error) => {
+      setIsConnected(true);
       console.log("MQTT error:", err);
       mqttClientRef.current?.end();
     });
 
+    // アンマウント時の動作
     return () => {
-      // アンマウント時はコネクションをクローズ
+      // コネクションをクローズ
       if (mqttClientRef.current) {
-        mqttClientRef.current.end();
+        mqttClientRef.current.end(() => {
+          console.log("MQTT connection closed.");
+        });
       }
     };
   }, []);
