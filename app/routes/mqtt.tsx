@@ -1,4 +1,5 @@
 import { MetaFunction } from "@remix-run/node";
+import { NavLink } from "@remix-run/react";
 import mqtt, { MqttClient } from "mqtt";
 import { useEffect, useRef, useState } from "react";
 
@@ -46,22 +47,43 @@ export default function Mqtt() {
       });
     });
 
-    // メッセージ受信
+    // メッセージ受信時のイベント
     mqttClientRef.current.on("message", (topic: string, message: Buffer) => {
       console.log("Received message:", topic, message.toString());
       setReceivedMessage(message.toString());
     });
 
-    // エラー
+    // エラー時のイベント
     mqttClientRef.current.on("error", (err: Error) => {
       setIsConnected(true);
       console.log("MQTT error:", err);
       mqttClientRef.current?.end();
     });
 
+    // DISCONNECTを送信したときのイベント
+    mqttClientRef.current.on("close", () => {
+      setIsConnected(false);
+      console.log("Emitted DISCONNECT.");
+    });
+
+    // ブローカーからDISCONNECTを受信
+    mqttClientRef.current.on("disconnect", () => {
+      setIsConnected(false);
+      console.log("MQTT Broker emitted DISCONNECT.");
+    });
+
+    // クライアントクローズ時のイベント
+    // end()が呼び出されると発行される
+    // end()にコールバック関数がセットされているときは
+    // そのコールバック関数が返されると発行される
+    mqttClientRef.current.on("end", () => {
+      setIsConnected(false);
+      console.log("Close MQTT Client.");
+    });
+
     // アンマウント時の動作
     return () => {
-      // コネクションをクローズ
+      // クライントをクローズ
       if (mqttClientRef.current) {
         mqttClientRef.current.end(() => {
           console.log("MQTT connection closed.");
