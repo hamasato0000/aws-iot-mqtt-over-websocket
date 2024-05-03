@@ -84,7 +84,7 @@ export default function Index() {
       <input
         type="text"
         value={message}
-        onChangeCapture={(event) => setMessage(event.currentTarget.value)}
+        onChange={(event) => setMessage(event.currentTarget.value)}
       />
       <button onClick={handleSendMessage}>Send Message</button>
       <p>Received Message: {receivedMessage}</p>
