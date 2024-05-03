@@ -1,4 +1,5 @@
 import { MetaFunction } from "@remix-run/node";
+import { NavLink } from "@remix-run/react";
 import mqtt, { MqttClient } from "mqtt";
 import { useEffect, useRef, useState } from "react";
 
@@ -84,6 +85,7 @@ export default function Mqtt() {
       />
       <button onClick={handleSendMessage}>Send Message</button>
       <p>Received Message: {receivedMessage}</p>
+      <NavLink to="/">TOP</NavLink>
     </div>
   );
 }
