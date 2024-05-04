@@ -28,7 +28,7 @@ export default function Mqtt() {
 
     // MQTTクライアント
     const mqttClient = mqtt.connect(
-      `${MQTT_BROKER_URL}?x-amz-customauthorizer-name=${AWS_IOT_CUSTOM_AUTHORIZER_NAME}`,
+      `${MQTT_BROKER_URL}?x-amz-customauthorizer-name=${AWS_IOT_CUSTOM_AUTHORIZER_NAME}`, // クエリパラメータでカスタムオーソライザーを指定する必要がある
       {
         clientId: clientId,
         clean: true,
@@ -36,7 +36,7 @@ export default function Mqtt() {
         reconnectPeriod: 1000,
         rejectUnauthorized: true,
         username: "test",
-        password: btoa("dummy"),
+        password: btoa("dummy"), // base64エンコードする必要がある
       }
     );
     mqttClientRef.current = mqttClient;
