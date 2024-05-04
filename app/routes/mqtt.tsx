@@ -10,8 +10,12 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-const MQTT_BROKER_URL = "wss://broker.emqx.io:8084/mqtt";
+const MQTT_BROKER_URL = `wss://${
+  import.meta.env.VITE_AWS_IOT_ENDPOINT // 環境変数にアクセス
+}:443/mqtt`;
 const MQTT_TOPIC = "test/topic";
+const AWS_IOT_CUSTOM_AUTHORIZER_NAME = import.meta.env
+  .VITE_AWS_IOT_CUSTOM_AUTHORIZER_NAME;
 
 export default function Mqtt() {
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -23,12 +27,16 @@ export default function Mqtt() {
     const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
 
     // MQTTクライアント
-    const mqttClient = mqtt.connect(MQTT_BROKER_URL, {
-      clientId: clientId,
-      clean: true,
-      connectTimeout: 4000,
-      reconnectPeriod: 1000,
-    });
+    const mqttClient = mqtt.connect(
+      `${MQTT_BROKER_URL}?x-amz-customauthorizer-name=${AWS_IOT_CUSTOM_AUTHORIZER_NAME}`,
+      {
+        clientId: clientId,
+        clean: true,
+        connectTimeout: 4000,
+        reconnectPeriod: 1000,
+        rejectUnauthorized: true,
+      }
+    );
     mqttClientRef.current = mqttClient;
 
     // ブローカーに接続
