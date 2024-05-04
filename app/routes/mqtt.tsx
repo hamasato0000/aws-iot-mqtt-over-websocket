@@ -35,6 +35,8 @@ export default function Mqtt() {
         connectTimeout: 4000,
         reconnectPeriod: 1000,
         rejectUnauthorized: true,
+        username: "test",
+        password: btoa("dummy"),
       }
     );
     mqttClientRef.current = mqttClient;
