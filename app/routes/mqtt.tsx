@@ -20,7 +20,8 @@ const AWS_IOT_CUSTOM_AUTHORIZER_NAME = import.meta.env
 export default function Mqtt() {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
-  const [receivedMessage, setReceivedMessage] = useState<string>("");
+  // const [receivedMessage, setReceivedMessage] = useState<string>("");
+  const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
   const mqttClientRef = useRef<MqttClient | null>(null);
 
   useEffect(() => {
@@ -60,7 +61,11 @@ export default function Mqtt() {
     // メッセージ受信時のイベント
     mqttClientRef.current.on("message", (topic: string, message: Buffer) => {
       console.log("Received message:", topic, message.toString());
-      setReceivedMessage(message.toString());
+      // 直接 receivedMessage を参照すると useEffect で警告が出る
+      setReceivedMessages((prevMessages) => [
+        ...prevMessages,
+        message.toString(),
+      ]);
     });
 
     // エラー時のイベント
@@ -120,7 +125,14 @@ export default function Mqtt() {
         onChange={(event) => setMessage(event.currentTarget.value)}
       />
       <button onClick={handleSendMessage}>Send Message</button>
-      <p>Received Message: {receivedMessage}</p>
+      <div>
+        {/* index を使うのは非推奨らしい */}
+        {receivedMessages.map((message, index) => (
+          <div key={index}>
+            <p>{message}</p>
+          </div>
+        ))}
+      </div>
       <NavLink to="/">TOP</NavLink>
     </div>
   );
