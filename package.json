@@ -11,6 +11,7 @@
     "typecheck": "tsc"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.2.4",
     "@aws-sdk/client-iot": "^3.568.0",
     "@remix-run/node": "^2.9.1",
     "@remix-run/react": "^2.9.1",
