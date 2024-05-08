@@ -1,3 +1,4 @@
+import { useAuth0 } from "@auth0/auth0-react";
 import { MetaFunction } from "@remix-run/node";
 import { NavLink } from "@remix-run/react";
 import mqtt, { MqttClient } from "mqtt";
@@ -18,83 +19,96 @@ const AWS_IOT_CUSTOM_AUTHORIZER_NAME = import.meta.env
   .VITE_AWS_IOT_CUSTOM_AUTHORIZER_NAME;
 
 export default function Mqtt() {
+  const { getAccessTokenSilently } = useAuth0();
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [message, setMessage] = useState<string>("");
-  // const [receivedMessage, setReceivedMessage] = useState<string>("");
   const [receivedMessages, setReceivedMessages] = useState<string[]>([]);
   const mqttClientRef = useRef<MqttClient | null>(null);
 
   useEffect(() => {
-    const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
+    const connectMqttOverWebSocket = async () => {
+      try {
+        // アクセストークンの取得
+        const token = await getAccessTokenSilently();
+        const clientId = `mqtt_${Math.random().toString(16).slice(3)}`;
 
-    // MQTTクライアント
-    const mqttClient = mqtt.connect(
-      `${MQTT_BROKER_URL}?x-amz-customauthorizer-name=${AWS_IOT_CUSTOM_AUTHORIZER_NAME}`, // クエリパラメータでカスタムオーソライザーを指定する必要がある
-      {
-        clientId: clientId,
-        clean: true,
-        connectTimeout: 4000,
-        reconnectPeriod: 1000,
-        rejectUnauthorized: true,
-        username: "test",
-        password: btoa("dummy"), // base64エンコードする必要がある
+        // MQTTクライアント
+        const mqttClient = mqtt.connect(
+          `${MQTT_BROKER_URL}?x-amz-customauthorizer-name=${AWS_IOT_CUSTOM_AUTHORIZER_NAME}`, // クエリパラメータでカスタムオーソライザーを指定する必要がある
+          {
+            clientId: clientId,
+            clean: true,
+            connectTimeout: 4000,
+            reconnectPeriod: 1000,
+            rejectUnauthorized: true,
+            username: "test",
+            password: token, // base64エンコードする必要がある
+          }
+        );
+        mqttClientRef.current = mqttClient;
+
+        // ブローカーに接続
+        // NOTE: 接続に関するエラーハンドリングは？
+        mqttClientRef.current.on("connect", () => {
+          setIsConnected(true);
+          console.log("Connected to MQTT broker. Client ID:", clientId);
+
+          // サブスクライブ
+          mqttClientRef.current?.subscribe(MQTT_TOPIC, (err) => {
+            if (err) {
+              console.error("Failed to subscribe:", err);
+            } else {
+              console.log("Subscribed to topic:", MQTT_TOPIC);
+            }
+          });
+        });
+
+        // メッセージ受信時のイベント
+        mqttClientRef.current.on(
+          "message",
+          (topic: string, message: Buffer) => {
+            console.log("Received message:", topic, message.toString());
+            // 直接 receivedMessage を参照すると useEffect で警告が出る
+            setReceivedMessages((prevMessages) => [
+              ...prevMessages,
+              message.toString(),
+            ]);
+          }
+        );
+
+        // エラー時のイベント
+        mqttClientRef.current.on("error", (err: Error) => {
+          setIsConnected(true);
+          console.log("MQTT error:", err);
+          mqttClientRef.current?.end();
+        });
+
+        // DISCONNECTを送信したときのイベント
+        mqttClientRef.current.on("close", () => {
+          setIsConnected(false);
+          console.log("Emitted DISCONNECT.");
+        });
+
+        // ブローカーからDISCONNECTを受信
+        mqttClientRef.current.on("disconnect", () => {
+          setIsConnected(false);
+          console.log("MQTT Broker emitted DISCONNECT.");
+        });
+
+        // クライアントクローズ時のイベント
+        // end()が呼び出されると発行される
+        // end()にコールバック関数がセットされているときは
+        // そのコールバック関数が返されると発行される
+        mqttClientRef.current.on("end", () => {
+          setIsConnected(false);
+          console.log("Close MQTT Client.");
+        });
+      } catch (err) {
+        console.log("Failed to get access token: ", err);
       }
-    );
-    mqttClientRef.current = mqttClient;
+    };
 
-    // ブローカーに接続
-    // NOTE: 接続に関するエラーハンドリングは？
-    mqttClientRef.current.on("connect", () => {
-      setIsConnected(true);
-      console.log("Connected to MQTT broker. Client ID:", clientId);
-
-      // サブスクライブ
-      mqttClientRef.current?.subscribe(MQTT_TOPIC, (err) => {
-        if (err) {
-          console.error("Failed to subscribe:", err);
-        } else {
-          console.log("Subscribed to topic:", MQTT_TOPIC);
-        }
-      });
-    });
-
-    // メッセージ受信時のイベント
-    mqttClientRef.current.on("message", (topic: string, message: Buffer) => {
-      console.log("Received message:", topic, message.toString());
-      // 直接 receivedMessage を参照すると useEffect で警告が出る
-      setReceivedMessages((prevMessages) => [
-        ...prevMessages,
-        message.toString(),
-      ]);
-    });
-
-    // エラー時のイベント
-    mqttClientRef.current.on("error", (err: Error) => {
-      setIsConnected(true);
-      console.log("MQTT error:", err);
-      mqttClientRef.current?.end();
-    });
-
-    // DISCONNECTを送信したときのイベント
-    mqttClientRef.current.on("close", () => {
-      setIsConnected(false);
-      console.log("Emitted DISCONNECT.");
-    });
-
-    // ブローカーからDISCONNECTを受信
-    mqttClientRef.current.on("disconnect", () => {
-      setIsConnected(false);
-      console.log("MQTT Broker emitted DISCONNECT.");
-    });
-
-    // クライアントクローズ時のイベント
-    // end()が呼び出されると発行される
-    // end()にコールバック関数がセットされているときは
-    // そのコールバック関数が返されると発行される
-    mqttClientRef.current.on("end", () => {
-      setIsConnected(false);
-      console.log("Close MQTT Client.");
-    });
+    connectMqttOverWebSocket();
 
     // アンマウント時の動作
     return () => {
@@ -105,7 +119,7 @@ export default function Mqtt() {
         });
       }
     };
-  }, []);
+  }, [getAccessTokenSilently]);
 
   const handleSendMessage = () => {
     if (mqttClientRef.current) {

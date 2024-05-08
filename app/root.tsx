@@ -6,7 +6,12 @@ import {
   ScrollRestoration,
 } from "@remix-run/react";
 
+import AuthContextProvider from "./auth";
+
+// ここにブラウザでしか使えないAPI（windowなど）にアクセスしようとするとエラーになる
 export function Layout({ children }: { children: React.ReactNode }) {
+  // サーバーサイドでも表示されるし、ブラウザのコンソールでも表示される
+  console.log("Layout()");
   return (
     <html lang="en">
       <head>
@@ -25,9 +30,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  console.log("App()");
+  return (
+    <AuthContextProvider>
+      <Outlet />
+    </AuthContextProvider>
+  );
 }
 
+// ここがエントリーポイント？
+// SPAモードではroot.tsxでしか使えない
 export function HydrateFallback() {
   return <p>Loading...</p>;
 }
